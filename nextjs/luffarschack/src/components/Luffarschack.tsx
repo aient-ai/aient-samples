@@ -248,9 +248,6 @@ export default function Luffarschack() {
       }
 
       activePointerIdRef.current = e.pointerId;
-      // Capture ensures we keep receiving moves even when pointer leaves the element
-      e.currentTarget.setPointerCapture(e.pointerId);
-
       setIsDragging(true);
       setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
       dragStartPosRef.current = { x: e.clientX, y: e.clientY };
@@ -266,8 +263,13 @@ export default function Luffarschack() {
       // Check if we've moved enough to count as a drag (not a tap/click)
       const dx = e.clientX - dragStartPosRef.current.x;
       const dy = e.clientY - dragStartPosRef.current.y;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      if (!hasDraggedRef.current && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
         hasDraggedRef.current = true;
+        // Capture only once panning actually starts, so moves keep arriving
+        // when the pointer leaves the board. Capturing on pointerdown instead
+        // would retarget the following click to this container and no cell
+        // would ever receive it.
+        e.currentTarget.setPointerCapture(e.pointerId);
       }
 
       setOffset({
@@ -282,6 +284,9 @@ export default function Luffarschack() {
     if (activePointerIdRef.current !== e.pointerId) return;
     activePointerIdRef.current = null;
     setIsDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
   }, []);
 
   const handleWheel = useCallback(
