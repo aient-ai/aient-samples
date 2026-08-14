@@ -1,7 +1,7 @@
-# Glimt App
+# Luffarschack
 
 This is a [Next.js](https://nextjs.org/) project managed with [pnpm](https://pnpm.io/).  
-It is intentionally **not** part of the root Glimt workspace—treat this directory as a
+It is intentionally **not** part of any root workspace—treat this directory as a
 copyable demo shell that can be run in isolation.
 
 ## Getting Started
