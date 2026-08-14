@@ -19,6 +19,31 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Bug notes
+
+### Pointer capture swallowed every board click
+
+**Symptom:** clicking a cell on the board placed no marker. Hovering still
+highlighted the cell under the cursor, and the move counter stayed at 0.
+
+**Cause:** the touch-panning support in `37122e4` called
+`setPointerCapture()` in the board container's `pointerdown` handler, so the
+capture was active for the entire press. Per the [Pointer Events
+spec](https://www.w3.org/TR/pointerevents/#process-pending-pointer-capture),
+while a capture is active the subsequent `click` event is retargeted to the
+capturing element. Every click therefore landed on the container `<div>` and
+the `<button>` for the cell never saw it. Hover still worked because
+`pointerenter` fires before the press, when no capture exists.
+
+**Fix:** capture only once the pointer has moved past the 3px drag threshold,
+in `pointermove`, and release it on `pointerup`/`pointercancel`. A plain click
+now never establishes a capture, so it reaches the cell normally, while a pan
+still gets capture and keeps receiving moves after the pointer leaves the
+board.
+
+**Takeaway:** `setPointerCapture()` on `pointerdown` is a click-killer for any
+container with interactive children. Defer it until a drag is confirmed.
+
 ## Project Structure
 
 ```
