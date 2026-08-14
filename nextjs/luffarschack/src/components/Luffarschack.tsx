@@ -227,8 +227,17 @@ export default function Luffarschack() {
 
       const winLine = checkWin(newState, x, y, currentPlayer);
       if (winLine) {
+        // A run can be longer than five when a move joins two existing groups.
+        // Highlight the five cells starting at the stone that was just placed.
+        const startIdx = winLine.findIndex(([wx, wy]) => wx === x && wy === y);
+        const winningRun: CellKey[] = [];
+        for (let i = startIdx; i < startIdx + WIN_LENGTH; i++) {
+          const [wx, wy] = winLine[i];
+          winningRun.push(cellKey(wx, wy));
+        }
+
         setWinner(currentPlayer);
-        setWinningCells(new Set(winLine.map(([wx, wy]) => cellKey(wx, wy))));
+        setWinningCells(new Set(winningRun));
       } else {
         setCurrentPlayer(currentPlayer === "X" ? "O" : "X");
       }
