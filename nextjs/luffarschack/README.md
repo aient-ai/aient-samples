@@ -19,6 +19,24 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Aient telemetry
+
+Copy `.env.example` to `.env.local` and provide the server and browser
+publishable ingest keys to enable OpenTelemetry. Deployment builds must set the
+same commit in `COMMIT_SHA` and `NEXT_PUBLIC_COMMIT_SHA`, and the same branch in
+`COMMIT_REF` and `NEXT_PUBLIC_COMMIT_REF`. Keep `AIENT_ENV`
+and `NEXT_PUBLIC_AIENT_ENV` aligned (`prod` for production).
+
+Production builds (`AIENT_ENV=prod pnpm build`) upload both browser and server
+source maps after Next.js builds the deployed artifact. Configure the
+upload-scoped `AIENT_API_KEY` in the deployment platform's secret store; it is a
+build-time secret and must never use a `NEXT_PUBLIC_` name or the publishable
+ingest key. The build fails if release metadata or the upload credential is
+missing, if browser and server commits differ, or if either source-map root is
+empty. If server stack frames use an absolute application root, set
+`AIENT_SERVER_BUNDLE_PREFIX` to that runtime prefix (for example,
+`/app/.next/server`).
+
 ## Bug notes
 
 ### Pointer capture swallowed every board click

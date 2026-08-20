@@ -1,18 +1,13 @@
 import { registerOTel } from "@aient/otel";
+import { SERVER_TELEMETRY } from "./src/lib/env";
 
-// Server-side OpenTelemetry registration for Next.js
-// Reads configuration from env vars per repository convention and Aient contract.
-registerOTel({
-  serviceName: process.env.OTEL_SERVICE_NAME ?? process.env.NEXT_PUBLIC_OTEL_SERVICE_NAME ?? "luffarschack",
-  publishableKey: process.env.AIENT_PUBLISHABLE_KEY,
-  exporterUrl: process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? "https://ingest.aient.ai",
-  release: {
-    commit: process.env.COMMIT_SHA,
-    branch: process.env.COMMIT_REF,
-    environment: process.env.AIENT_ENV,
-  },
-});
+export function register() {
+  if (!SERVER_TELEMETRY.publishableKey) return;
 
-// Note: For browser instrumentation, call registerOTelBrowser from a client entry
-// point (e.g., in a custom _app or layout client component) using
-// NEXT_PUBLIC_AIENT_PUBLISHABLE_KEY and NEXT_PUBLIC_* env vars.
+  registerOTel({
+    serviceName: SERVER_TELEMETRY.serviceName,
+    publishableKey: SERVER_TELEMETRY.publishableKey,
+    exporterUrl: SERVER_TELEMETRY.exporterUrl,
+    release: SERVER_TELEMETRY.release,
+  });
+}
