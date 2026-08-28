@@ -19,6 +19,22 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Aient telemetry
+
+Copy `.env.example` into your deployment configuration and provide separate
+server and browser publishable ingest keys. Set `COMMIT_SHA`, `COMMIT_REF`, and
+`AIENT_ENV` for the server release; the Next.js build copies those values to the
+corresponding `NEXT_PUBLIC_*` release variables when they are not supplied
+explicitly, and rejects conflicting values.
+
+Production browser source maps are emitted by Next.js. The `postbuild` lifecycle
+uploads both `.next/static` and `.next/server` maps from that same build with the
+installed `@aient/sourcemaps` CLI. Configure the upload-scoped `AIENT_API_KEY`
+secret in CI; it is intentionally distinct from the runtime publishable keys.
+CI and `AIENT_ENV=prod` builds fail when this secret is absent. If deployed
+server stack frames include a root before `.next/server`, set
+`AIENT_SERVER_BUNDLE_PREFIX` to that exact runtime path.
+
 ## Bug notes
 
 ### Pointer capture swallowed every board click
