@@ -2,15 +2,16 @@ import { dirname } from "path";
 import { fileURLToPath } from "url";
 
 const releaseVariables = [
-  ["NEXT_PUBLIC_COMMIT_SHA", "COMMIT_SHA"],
-  ["NEXT_PUBLIC_COMMIT_REF", "COMMIT_REF"],
-  ["NEXT_PUBLIC_AIENT_ENV", "AIENT_ENV"],
+  ["NEXT_PUBLIC_COMMIT_SHA", ["COMMIT_SHA", "VERCEL_GIT_COMMIT_SHA"]],
+  ["NEXT_PUBLIC_COMMIT_REF", ["COMMIT_REF", "VERCEL_GIT_COMMIT_REF"]],
+  ["NEXT_PUBLIC_AIENT_ENV", ["AIENT_ENV"]],
 ];
 
 const browserReleaseEnv = Object.fromEntries(
-  releaseVariables.flatMap(([browserName, serverName]) => {
+  releaseVariables.flatMap(([browserName, serverNames]) => {
     const browserValue = process.env[browserName];
-    const serverValue = process.env[serverName];
+    const serverName = serverNames.find((name) => process.env[name]);
+    const serverValue = serverName ? process.env[serverName] : undefined;
 
     if (browserValue && serverValue && browserValue !== serverValue) {
       throw new Error(`${browserName} must match ${serverName}`);

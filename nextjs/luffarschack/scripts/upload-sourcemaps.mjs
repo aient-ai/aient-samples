@@ -2,33 +2,43 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 const isCi = ["1", "true"].includes((process.env.CI ?? "").toLowerCase());
+const isVercel = process.env.VERCEL === "1";
+const vercelEnvironment = (process.env.VERCEL_ENV ?? "").toLowerCase();
 const releaseEnvironment =
   process.env.AIENT_ENV ?? process.env.NEXT_PUBLIC_AIENT_ENV;
 const isProduction = ["prod", "production"].includes(
   (releaseEnvironment ?? "").toLowerCase(),
 );
+const isVercelPreview =
+  isVercel && ["preview", "development"].includes(vercelEnvironment);
 
 if (!process.env.AIENT_API_KEY) {
-  if (isCi || isProduction) {
+  if (!isVercelPreview && (isCi || isProduction || isVercel)) {
     throw new Error(
       "AIENT_API_KEY is required to upload source maps in CI and production builds",
     );
   }
 
-  console.warn("Skipping Aient source-map upload outside CI without AIENT_API_KEY");
+  console.warn(
+    isVercelPreview
+      ? "Skipping Aient source-map upload for Vercel preview without AIENT_API_KEY"
+      : "Skipping Aient source-map upload outside CI without AIENT_API_KEY",
+  );
   process.exit(0);
 }
 
-const commit = process.env.COMMIT_SHA;
+const commit = process.env.COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA;
 if (!commit) {
-  throw new Error("COMMIT_SHA is required to upload source maps");
+  throw new Error(
+    "COMMIT_SHA or VERCEL_GIT_COMMIT_SHA is required to upload source maps",
+  );
 }
 
 if (
   process.env.NEXT_PUBLIC_COMMIT_SHA &&
   process.env.NEXT_PUBLIC_COMMIT_SHA !== commit
 ) {
-  throw new Error("NEXT_PUBLIC_COMMIT_SHA must match COMMIT_SHA");
+  throw new Error("NEXT_PUBLIC_COMMIT_SHA must match the source-map commit");
 }
 
 const executable = join(

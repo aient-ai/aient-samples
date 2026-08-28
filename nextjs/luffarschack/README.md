@@ -27,12 +27,19 @@ server and browser publishable ingest keys. Set `COMMIT_SHA`, `COMMIT_REF`, and
 corresponding `NEXT_PUBLIC_*` release variables when they are not supplied
 explicitly, and rejects conflicting values.
 
+Vercel deployments automatically fall back to `VERCEL_GIT_COMMIT_SHA` and
+`VERCEL_GIT_COMMIT_REF`, so their runtime release metadata and uploaded maps use
+the deployment's Git identity without duplicating those variables. Configure the
+publishable keys and `AIENT_ENV` in the Vercel project environment.
+
 Production browser source maps are emitted by Next.js. The `postbuild` lifecycle
 uploads both `.next/static` and `.next/server` maps from that same build with the
 installed `@aient/sourcemaps` CLI. Configure the upload-scoped `AIENT_API_KEY`
-secret in CI; it is intentionally distinct from the runtime publishable keys.
-CI and `AIENT_ENV=prod` builds fail when this secret is absent. If deployed
-server stack frames include a root before `.next/server`, set
+secret for Vercel Production and other CI builds; it is intentionally distinct
+from the runtime publishable keys. Vercel Preview builds skip upload when the
+secret is absent, while Production deployments, other CI, and local
+`AIENT_ENV=prod` builds fail closed. If deployed server stack frames include a
+root before `.next/server`, set
 `AIENT_SERVER_BUNDLE_PREFIX` to that exact runtime path.
 
 ## Bug notes
