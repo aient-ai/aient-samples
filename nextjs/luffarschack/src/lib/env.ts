@@ -20,8 +20,8 @@ export function getServerTelemetryEnv() {
       process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? "https://ingest.aient.ai",
     publishableKey: process.env.AIENT_PUBLISHABLE_KEY,
     release: {
-      commit: process.env.COMMIT_SHA,
-      branch: process.env.COMMIT_REF,
+      commit: process.env.COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA,
+      branch: process.env.COMMIT_REF ?? process.env.VERCEL_GIT_COMMIT_REF,
       environment: process.env.AIENT_ENV ?? process.env.NODE_ENV,
     },
   } as const;

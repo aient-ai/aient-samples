@@ -1,19 +1,26 @@
 import { spawnSync } from "node:child_process";
 
 const isDryRun = process.argv.includes("--dry-run");
-const commit = process.env.COMMIT_SHA;
+const commit = process.env.COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA;
 const browserCommit = process.env.NEXT_PUBLIC_COMMIT_SHA ?? commit;
 
+if (!process.env.AIENT_API_KEY) {
+  console.warn(
+    "Skipping Aient source-map upload: AIENT_API_KEY is not configured.",
+  );
+  process.exit(0);
+}
+
 if (!commit) {
-  throw new Error("COMMIT_SHA is required to upload source maps");
+  throw new Error(
+    "COMMIT_SHA (or VERCEL_GIT_COMMIT_SHA on Vercel) is required to upload source maps",
+  );
 }
 
 if (browserCommit !== commit) {
-  throw new Error("NEXT_PUBLIC_COMMIT_SHA must match COMMIT_SHA");
-}
-
-if (!process.env.AIENT_API_KEY) {
-  throw new Error("AIENT_API_KEY is required to upload source maps");
+  throw new Error(
+    "NEXT_PUBLIC_COMMIT_SHA must match the source-map release commit",
+  );
 }
 
 const command = process.platform === "win32" ? "aient-sourcemaps.cmd" : "aient-sourcemaps";

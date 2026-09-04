@@ -31,8 +31,10 @@ are explicitly set.
 `pnpm build` emits browser and server source maps and uploads both sets after the
 same production build. Configure the upload-scoped `AIENT_API_KEY` secret in the
 build environment. This key is only for source-map upload and must never be exposed
-as a `NEXT_PUBLIC_*` value or replaced with a publishable ingest key. The build
-fails when the key, commit metadata, or either set of source maps is missing.
+as a `NEXT_PUBLIC_*` value or replaced with a publishable ingest key. Vercel's Git
+commit metadata is used automatically. A build without the upload secret logs that
+the upload was skipped; when the secret is configured, the build fails if commit
+metadata or either set of source maps is missing, or if an upload fails.
 
 ## Bug notes
 
