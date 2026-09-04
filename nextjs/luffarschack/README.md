@@ -19,6 +19,30 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Aient telemetry and production builds
+
+Copy `.env.example` to `.env.local` and provide the server and browser publishable
+ingest keys for local telemetry. Production builds should set `COMMIT_SHA`,
+`COMMIT_REF`, and `AIENT_ENV` when the host does not already provide them; empty
+values are ignored so platform fallbacks still apply. Matching `NEXT_PUBLIC_*`
+release values are derived automatically unless explicitly provided.
+
+Commit resolution (upload + runtime) tries, in order: `COMMIT_SHA`, `GITHUB_SHA`,
+`VERCEL_GIT_COMMIT_SHA`, `CI_COMMIT_SHA`. Branch uses `COMMIT_REF`,
+`GITHUB_REF_NAME`, `VERCEL_GIT_COMMIT_REF`, `CI_COMMIT_REF_NAME`. Environment uses
+`AIENT_ENV`, then `VERCEL_ENV` (so preview stays `preview`), then `NODE_ENV`.
+
+`pnpm build` emits browser and server source maps, then uploads both from that exact
+build when `AIENT_API_KEY` is present. Configure `AIENT_API_KEY` as an upload-scoped
+secret in the deployment platform—never as a runtime or `NEXT_PUBLIC_*` value. CI
+builds fail if the key or commit is missing, and every upload uses `--fail-on-empty`.
+Server maps use bundle prefix `.next/server` (runtime path suffix), not a build-host
+absolute path. Vercel preview builds may omit the upload key and skip uploading;
+configure it for Preview as well to map preview releases. Vercel Production and other
+CI builds remain fail-closed. Local builds without upload credentials skip only the
+upload; set `AIENT_SOURCEMAPS_REQUIRED=true` to enforce the same fail-closed behavior
+locally.
+
 ## Bug notes
 
 ### Pointer capture swallowed every board click
