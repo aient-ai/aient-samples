@@ -1,5 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+
+/** First non-empty string; treats "" as missing (unlike ??). */
+function firstEnv(...values) {
+  for (const value of values) {
+    if (value) return value;
+  }
+  return undefined;
+}
 
 const isCI = process.env.CI === "true" || process.env.CI === "1";
 const isVercelPreview = process.env.VERCEL_ENV === "preview";
@@ -8,12 +15,20 @@ const required =
   process.env.AIENT_SOURCEMAPS_REQUIRED === "true" ||
   isVercelProduction ||
   (isCI && !isVercelPreview);
-const commit = process.env.COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA;
+// Match @aient/sourcemaps CLI auto-detect order; empty COMMIT_SHA must not block fallbacks.
+const commit = firstEnv(
+  process.env.COMMIT_SHA,
+  process.env.GITHUB_SHA,
+  process.env.VERCEL_GIT_COMMIT_SHA,
+  process.env.CI_COMMIT_SHA,
+);
 const apiKey = process.env.AIENT_API_KEY;
+const browserCommit = firstEnv(process.env.NEXT_PUBLIC_COMMIT_SHA);
 
 if (!commit || !apiKey) {
   const missing = [
-    !commit && "COMMIT_SHA or VERCEL_GIT_COMMIT_SHA",
+    !commit &&
+      "COMMIT_SHA, GITHUB_SHA, VERCEL_GIT_COMMIT_SHA, or CI_COMMIT_SHA",
     !apiKey && "AIENT_API_KEY",
   ].filter(Boolean);
   const message = `Source-map upload skipped: missing ${missing.join(" and ")}.`;
@@ -29,11 +44,10 @@ if (!commit || !apiKey) {
   process.exit(0);
 }
 
-if (
-  process.env.NEXT_PUBLIC_COMMIT_SHA &&
-  process.env.NEXT_PUBLIC_COMMIT_SHA !== commit
-) {
-  console.error("NEXT_PUBLIC_COMMIT_SHA must match the release commit for source mapping.");
+if (browserCommit && browserCommit !== commit) {
+  console.error(
+    "NEXT_PUBLIC_COMMIT_SHA must match the release commit for source mapping.",
+  );
   process.exit(1);
 }
 
@@ -51,7 +65,8 @@ const uploads = [
   {
     directory: ".next/server",
     service: process.env.OTEL_SERVICE_NAME ?? "luffarschack",
-    bundlePrefix: resolve(".next/server").replaceAll("\\", "/"),
+    // Runtime stacks use a path suffix under .next/server, not the build-host absolute path.
+    bundlePrefix: ".next/server",
   },
 ];
 
