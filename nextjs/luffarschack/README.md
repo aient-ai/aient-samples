@@ -19,6 +19,21 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Aient telemetry
+
+Copy `.env.example` to `.env.local` and configure the server and browser
+publishable keys for local telemetry. Deployment builds must provide the same
+git revision in `COMMIT_SHA` and `NEXT_PUBLIC_COMMIT_SHA`, along with the
+corresponding `COMMIT_REF` / `NEXT_PUBLIC_COMMIT_REF` values and the
+`AIENT_ENV` / `NEXT_PUBLIC_AIENT_ENV` deployment slug.
+
+`pnpm build` emits browser and server source maps and uploads both sets after
+the successful Next.js production build. Configure the upload-scoped
+`AIENT_API_KEY` in the CI or hosting provider's secret store. The upload is
+skipped when that secret is absent (for example, during a local build), and it
+fails closed when release commit values are missing or do not match. Never
+expose `AIENT_API_KEY` through a `NEXT_PUBLIC_` variable.
+
 ## Bug notes
 
 ### Pointer capture swallowed every board click
