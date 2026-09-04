@@ -19,6 +19,41 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Telemetry and production builds
+
+The app sends server and browser OpenTelemetry data to Aient. Configure these
+variables in the deployment environment; publishable keys are runtime ingest
+credentials and must not be committed to source control:
+
+```bash
+AIENT_PUBLISHABLE_KEY=pk_...
+OTEL_SERVICE_NAME=glimt-app
+OTEL_EXPORTER_OTLP_ENDPOINT=https://ingest.aient.ai
+COMMIT_SHA=<deployed-git-sha>
+COMMIT_REF=<deployed-git-branch>
+BUILD_DATE=<utc-iso-8601-build-time>
+AIENT_ENV=prod
+
+NEXT_PUBLIC_AIENT_PUBLISHABLE_KEY=pk_...
+NEXT_PUBLIC_OTEL_SERVICE_NAME=glimt-app
+NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT=https://ingest.aient.ai
+NEXT_PUBLIC_COMMIT_SHA=<same-value-as-COMMIT_SHA>
+NEXT_PUBLIC_COMMIT_REF=<same-value-as-COMMIT_REF>
+NEXT_PUBLIC_AIENT_ENV=prod
+```
+
+`pnpm build` is the production build path. It builds the exact deployable
+artifact and then uploads both `.next/static` browser maps and `.next/server`
+server maps. Set the upload-scoped `AIENT_API_KEY` secret for this command; do
+not use either publishable ingest key for source-map upload. The default server
+bundle prefix is `/app/.next/server`; if the production runtime installs the app
+under a different absolute path, set `AIENT_SERVER_BUNDLE_PREFIX` to the runtime
+path ending in `.next/server`.
+
+For a local production compilation without uploading artifacts, use
+`pnpm build:app`. Source-map upload deliberately fails closed when its API key,
+commit SHA, or generated maps are missing.
+
 ## Project Structure
 
 ```

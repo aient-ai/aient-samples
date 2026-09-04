@@ -4,19 +4,30 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm run build:app && pnpm run upload:sourcemaps",
+    "build:app": "next build",
+    "upload:sourcemaps": "pnpm run upload:sourcemaps:browser && pnpm run upload:sourcemaps:server",
+    "upload:sourcemaps:browser": "aient-sourcemaps upload .next/static --service ${NEXT_PUBLIC_OTEL_SERVICE_NAME:-glimt-app} --commit \"$COMMIT_SHA\" --bundle-prefix /_next/static --fail-on-empty",
+    "upload:sourcemaps:server": "aient-sourcemaps upload .next/server --service ${OTEL_SERVICE_NAME:-glimt-app} --commit \"$COMMIT_SHA\" --bundle-prefix ${AIENT_SERVER_BUNDLE_PREFIX:-/app/.next/server} --fail-on-empty",
     "start": "next start",
     "lint": "eslint ."
   },
   "dependencies": {
+    "@aient/otel": "2.1.0",
+    "@aient/otel-browser": "0.6.0",
     "@headlessui/react": "^2.2.9",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/api-logs": "0.222.0",
     "framer-motion": "^12.23.24",
+    "import-in-the-middle": "2.0.6",
     "lucide-react": "^0.555.0",
     "next": "16.0.7",
     "react": "19.2.1",
-    "react-dom": "19.2.1"
+    "react-dom": "19.2.1",
+    "require-in-the-middle": "8.0.1"
   },
   "devDependencies": {
+    "@aient/sourcemaps": "0.3.4",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "^24.10.1",
     "@types/react": "19.2.7",
