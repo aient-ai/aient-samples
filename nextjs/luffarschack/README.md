@@ -19,6 +19,21 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Aient telemetry
+
+Copy `.env.example` to `.env.local` and provide the browser and server publishable
+keys to send traces and logs. The application uses `https://ingest.aient.ai` and
+the `luffarschack` service name by default. Set `COMMIT_SHA`, `COMMIT_REF`, and
+`AIENT_ENV` in production so telemetry carries release metadata; the Next.js build
+copies those values to the browser bundle unless their `NEXT_PUBLIC_*` equivalents
+are explicitly set.
+
+`pnpm build` emits browser and server source maps and uploads both sets after the
+same production build. Configure the upload-scoped `AIENT_API_KEY` secret in the
+build environment. This key is only for source-map upload and must never be exposed
+as a `NEXT_PUBLIC_*` value or replaced with a publishable ingest key. The build
+fails when the key, commit metadata, or either set of source maps is missing.
+
 ## Bug notes
 
 ### Pointer capture swallowed every board click
