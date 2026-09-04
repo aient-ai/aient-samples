@@ -24,13 +24,16 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 Copy `.env.example` to `.env.local` and provide the server and browser publishable
 ingest keys for local telemetry. Production builds should set `COMMIT_SHA`,
 `COMMIT_REF`, and `AIENT_ENV`; the matching `NEXT_PUBLIC_*` release values are
-derived automatically unless explicitly provided.
+derived automatically unless explicitly provided. Vercel deployments also derive the
+commit and branch from `VERCEL_GIT_COMMIT_SHA` and `VERCEL_GIT_COMMIT_REF`.
 
 `pnpm build` emits browser and server source maps, then uploads both from that exact
 build when `AIENT_API_KEY` is present. Configure `AIENT_API_KEY` as an upload-scoped
 secret in the deployment platform—never as a runtime or `NEXT_PUBLIC_*` value. CI
-builds fail if the key or `COMMIT_SHA` is missing, and every upload uses
-`--fail-on-empty`. Local builds without upload credentials skip only the upload; set
+builds fail if the key or commit is missing, and every upload uses `--fail-on-empty`.
+Vercel preview builds may omit the upload key and skip uploading; configure it for
+Preview as well to map preview releases. Vercel Production and other CI builds remain
+fail-closed. Local builds without upload credentials skip only the upload; set
 `AIENT_SOURCEMAPS_REQUIRED=true` to enforce the same fail-closed behavior locally.
 
 ## Bug notes

@@ -2,13 +2,18 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
 const isCI = process.env.CI === "true" || process.env.CI === "1";
-const required = isCI || process.env.AIENT_SOURCEMAPS_REQUIRED === "true";
-const commit = process.env.COMMIT_SHA;
+const isVercelPreview = process.env.VERCEL_ENV === "preview";
+const isVercelProduction = process.env.VERCEL_ENV === "production";
+const required =
+  process.env.AIENT_SOURCEMAPS_REQUIRED === "true" ||
+  isVercelProduction ||
+  (isCI && !isVercelPreview);
+const commit = process.env.COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA;
 const apiKey = process.env.AIENT_API_KEY;
 
 if (!commit || !apiKey) {
   const missing = [
-    !commit && "COMMIT_SHA",
+    !commit && "COMMIT_SHA or VERCEL_GIT_COMMIT_SHA",
     !apiKey && "AIENT_API_KEY",
   ].filter(Boolean);
   const message = `Source-map upload skipped: missing ${missing.join(" and ")}.`;
@@ -18,7 +23,9 @@ if (!commit || !apiKey) {
     process.exit(1);
   }
 
-  console.warn(`${message} Set AIENT_SOURCEMAPS_REQUIRED=true to require uploads.`);
+  console.warn(
+    `${message} Set AIENT_SOURCEMAPS_REQUIRED=true to require uploads.`,
+  );
   process.exit(0);
 }
 
@@ -26,7 +33,7 @@ if (
   process.env.NEXT_PUBLIC_COMMIT_SHA &&
   process.env.NEXT_PUBLIC_COMMIT_SHA !== commit
 ) {
-  console.error("NEXT_PUBLIC_COMMIT_SHA must match COMMIT_SHA for source mapping.");
+  console.error("NEXT_PUBLIC_COMMIT_SHA must match the release commit for source mapping.");
   process.exit(1);
 }
 

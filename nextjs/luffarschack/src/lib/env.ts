@@ -9,8 +9,8 @@ export function getServerTelemetryEnv() {
     serviceName: process.env.OTEL_SERVICE_NAME ?? "luffarschack",
     exporterUrl: optional(process.env.OTEL_EXPORTER_OTLP_ENDPOINT),
     publishableKey: optional(process.env.AIENT_PUBLISHABLE_KEY),
-    commit: optional(process.env.COMMIT_SHA),
-    branch: optional(process.env.COMMIT_REF),
+    commit: optional(process.env.COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA),
+    branch: optional(process.env.COMMIT_REF ?? process.env.VERCEL_GIT_COMMIT_REF),
     environment: optional(process.env.AIENT_ENV ?? process.env.NODE_ENV),
   };
 }
