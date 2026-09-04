@@ -19,6 +19,20 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Aient telemetry and production builds
+
+Copy `.env.example` to `.env.local` and provide the server and browser publishable
+ingest keys for local telemetry. Production builds should set `COMMIT_SHA`,
+`COMMIT_REF`, and `AIENT_ENV`; the matching `NEXT_PUBLIC_*` release values are
+derived automatically unless explicitly provided.
+
+`pnpm build` emits browser and server source maps, then uploads both from that exact
+build when `AIENT_API_KEY` is present. Configure `AIENT_API_KEY` as an upload-scoped
+secret in the deployment platform—never as a runtime or `NEXT_PUBLIC_*` value. CI
+builds fail if the key or `COMMIT_SHA` is missing, and every upload uses
+`--fail-on-empty`. Local builds without upload credentials skip only the upload; set
+`AIENT_SOURCEMAPS_REQUIRED=true` to enforce the same fail-closed behavior locally.
+
 ## Bug notes
 
 ### Pointer capture swallowed every board click
