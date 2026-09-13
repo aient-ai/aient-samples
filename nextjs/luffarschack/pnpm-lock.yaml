@@ -48,6 +48,9 @@ importers:
       '@aient/sourcemaps':
         specifier: 0.3.4
         version: 0.3.4
+      '@next/env':
+        specifier: 16.0.7
+        version: 16.0.7
       '@tailwindcss/postcss':
         specifier: ^4.1.17
         version: 4.1.17

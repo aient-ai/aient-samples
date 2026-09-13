@@ -1,4 +1,8 @@
 import { spawnSync } from "node:child_process";
+import nextEnv from "@next/env";
+
+// Match Next production builds before reading release metadata or upload credentials.
+nextEnv.loadEnvConfig(process.cwd(), false);
 
 const isVercelPreview =
   process.env.VERCEL === "1" && process.env.VERCEL_ENV === "preview";

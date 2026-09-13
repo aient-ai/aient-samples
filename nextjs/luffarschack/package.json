@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "node scripts/build.mjs",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test scripts/tests/*.test.mjs"
   },
   "dependencies": {
     "@aient/otel": "2.1.0",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@aient/sourcemaps": "0.3.4",
+    "@next/env": "16.0.7",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "^24.10.1",
     "@types/react": "19.2.7",
