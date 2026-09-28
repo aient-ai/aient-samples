@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RotateCcw, Move, ZoomIn, ZoomOut } from "lucide-react";
+import { selectWinningRun } from "@/lib/winningLine";
 
 type Player = "X" | "O";
 type CellKey = `${number},${number}`;
@@ -228,13 +229,10 @@ export default function Luffarschack() {
       const winLine = checkWin(newState, x, y, currentPlayer);
       if (winLine) {
         // A run can be longer than five when a move joins two existing groups.
-        // Highlight the five cells starting at the stone that was just placed.
-        const startIdx = winLine.findIndex(([wx, wy]) => wx === x && wy === y);
-        const winningRun: CellKey[] = [];
-        for (let i = startIdx; i < startIdx + WIN_LENGTH; i++) {
-          const [wx, wy] = winLine[i];
-          winningRun.push(cellKey(wx, wy));
-        }
+        // Clamp the five-cell window so it always includes the winning move.
+        const winningRun = selectWinningRun(winLine, [x, y], WIN_LENGTH).map(
+          ([wx, wy]) => cellKey(wx, wy)
+        );
 
         setWinner(currentPlayer);
         setWinningCells(new Set(winningRun));
