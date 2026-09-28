@@ -41,6 +41,12 @@ remain fail-closed. If server stack paths include an absolute application root, 
 `AIENT_SERVER_BUNDLE_PREFIX` to that root plus `/.next/server` (for example,
 `/app/.next/server`).
 
+The browser bootstrap creates separate random installation and anonymous
+pseudonymous IDs before telemetry starts. It keeps them in first-party local
+storage across reloads and falls back to document-lifetime memory when storage is
+unavailable. This demo has no accounts or sign-out flow, so the anonymous
+pseudonym is never associated with an authenticated user.
+
 ## Bug notes
 
 ### Pointer capture swallowed every board click
