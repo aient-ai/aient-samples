@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RotateCcw, Move, ZoomIn, ZoomOut } from "lucide-react";
+import { RotateCcw, Move as MoveIcon, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { selectWinningRun } from "@/lib/winningLine";
+import { gameStore, type Move, type Player } from "@/lib/savedGame";
 
-type Player = "X" | "O";
 type CellKey = `${number},${number}`;
 type GameState = Map<CellKey, Player>;
 
@@ -59,6 +59,28 @@ function checkWin(
     }
   }
   return null;
+}
+
+function toGameState(moves: readonly Move[]): GameState {
+  return new Map(moves.map(({ x, y, player }) => [cellKey(x, y), player]));
+}
+
+function findWinningCells(
+  state: GameState,
+  x: number,
+  y: number,
+  player: Player
+): Set<CellKey> | null {
+  const winLine = checkWin(state, x, y, player);
+  if (!winLine) return null;
+
+  // A run can be longer than five when a move joins two existing groups.
+  // Clamp the five-cell window so it always includes the winning move.
+  return new Set(
+    selectWinningRun(winLine, [x, y], WIN_LENGTH).map(([wx, wy]) =>
+      cellKey(wx, wy)
+    )
+  );
 }
 
 function XMark({ isWinning }: { isWinning?: boolean }) {
@@ -161,7 +183,8 @@ function Cell({
 }
 
 export default function Luffarschack() {
-  const [gameState, setGameState] = useState<GameState>(new Map());
+  const [moves, setMoves] = useState<Move[]>([]);
+  const gameState = useMemo(() => toGameState(moves), [moves]);
   const [currentPlayer, setCurrentPlayer] = useState<Player>("X");
   const [winner, setWinner] = useState<Player | null>(null);
   const [winningCells, setWinningCells] = useState<Set<CellKey>>(new Set());
@@ -222,26 +245,74 @@ export default function Luffarschack() {
       const key = cellKey(x, y);
       if (gameState.has(key)) return;
 
+      const newMoves = [...moves, { x, y, player: currentPlayer }];
+      setMoves(newMoves);
+      gameStore.save(newMoves);
+
       const newState = new Map(gameState);
       newState.set(key, currentPlayer);
-      setGameState(newState);
 
-      const winLine = checkWin(newState, x, y, currentPlayer);
-      if (winLine) {
-        // A run can be longer than five when a move joins two existing groups.
-        // Clamp the five-cell window so it always includes the winning move.
-        const winningRun = selectWinningRun(winLine, [x, y], WIN_LENGTH).map(
-          ([wx, wy]) => cellKey(wx, wy)
-        );
-
+      const winning = findWinningCells(newState, x, y, currentPlayer);
+      if (winning) {
         setWinner(currentPlayer);
-        setWinningCells(new Set(winningRun));
+        setWinningCells(winning);
       } else {
         setCurrentPlayer(currentPlayer === "X" ? "O" : "X");
       }
     },
-    [gameState, currentPlayer, winner]
+    [moves, gameState, currentPlayer, winner]
   );
+
+  const undoLastMove = useCallback(() => {
+    const { player } = moves[moves.length - 1];
+    const remaining = moves.slice(0, -1);
+
+    setMoves(remaining);
+    gameStore.save(remaining);
+    setCurrentPlayer(player);
+    setWinner(null);
+    setWinningCells(new Set());
+  }, [moves]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "z"
+      ) {
+        e.preventDefault();
+        undoLastMove();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [undoLastMove]);
+
+  // Resume the game saved before the last reload
+  useEffect(() => {
+    const saved = gameStore.load();
+    if (!saved) return;
+
+    const lastMove = saved.moves[saved.moves.length - 1];
+    const winning = findWinningCells(
+      toGameState(saved.moves),
+      lastMove.x,
+      lastMove.y,
+      lastMove.player
+    );
+
+    // localStorage is only available after hydration, so restore here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMoves(saved.moves);
+    if (winning) {
+      setCurrentPlayer(lastMove.player);
+      setWinner(lastMove.player);
+      setWinningCells(winning);
+    } else {
+      setCurrentPlayer(lastMove.player === "X" ? "O" : "X");
+    }
+  }, []);
 
   const activePointerIdRef = useRef<number | null>(null);
 
@@ -322,19 +393,20 @@ export default function Luffarschack() {
   const resetGame = useCallback(
     (skipConfirm = false) => {
       // Only confirm if game is in progress (has moves and no winner)
-      if (!skipConfirm && gameState.size > 0 && !winner) {
+      if (!skipConfirm && moves.length > 0 && !winner) {
         if (!window.confirm("Start a new game? Current progress will be lost.")) {
           return;
         }
       }
-      setGameState(new Map());
+      setMoves([]);
+      gameStore.clear();
       setCurrentPlayer("X");
       setWinner(null);
       setWinningCells(new Set());
       setOffset({ x: viewSize.width / 2, y: viewSize.height / 2 });
       setZoom(1);
     },
-    [viewSize, gameState.size, winner]
+    [viewSize, moves.length, winner]
   );
 
   const centerView = useCallback(() => {
@@ -401,7 +473,7 @@ export default function Luffarschack() {
           {/* Move counter */}
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10">
             <span className="text-sm text-muted">Moves:</span>
-            <span className="text-sm font-medium">{gameState.size}</span>
+            <span className="text-sm font-medium">{moves.length}</span>
           </div>
 
           {/* Controls */}
@@ -425,7 +497,15 @@ export default function Luffarschack() {
               className="p-2 rounded-lg hover:bg-accent/10 transition-colors"
               title="Center view"
             >
-              <Move size={18} className="text-muted" />
+              <MoveIcon size={18} className="text-muted" />
+            </button>
+            <button
+              onClick={undoLastMove}
+              disabled={moves.length === 0}
+              className="p-2 rounded-lg hover:bg-accent/10 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              title="Undo move (Ctrl/⌘+Z)"
+            >
+              <Undo2 size={18} className="text-muted" />
             </button>
             <button
               onClick={() => resetGame()}
@@ -515,7 +595,7 @@ export default function Luffarschack() {
                   wins the game!
                 </p>
                 <p className="text-sm text-muted mb-6">
-                  Game ended after {gameState.size} moves
+                  Game ended after {moves.length} moves
                 </p>
                 <button
                   onClick={() => resetGame(true)}
@@ -534,7 +614,7 @@ export default function Luffarschack() {
       {/* Footer hints */}
       <footer className="px-6 py-3 border-t border-grid-line/50 text-center">
         <p className="text-xs text-muted">
-          Drag to pan • Scroll to zoom • Click to place • Get 5 in a row to win
+          Drag to pan • Scroll to zoom • Click to place • Ctrl/⌘+Z to undo • Get 5 in a row to win
         </p>
       </footer>
     </div>
