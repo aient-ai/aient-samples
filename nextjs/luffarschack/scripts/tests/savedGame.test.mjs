@@ -46,6 +46,26 @@ test("round-trips the move list through storage", () => {
   });
 });
 
+test("treats an existing empty save as no saved game", () => {
+  const storage = createStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: 1, moves: [] }),
+  });
+  const store = createGameStore({ getStorage: () => storage });
+
+  assert.equal(store.load(), null);
+});
+
+test("saving an empty move list clears the saved game", () => {
+  const storage = createStorage();
+  const store = createGameStore({ getStorage: () => storage });
+
+  store.save(moves);
+  store.save([]);
+
+  assert.equal(store.load(), null);
+  assert.equal(storage.values.has(STORAGE_KEY), false);
+});
+
 test("clear removes the saved game", () => {
   const storage = createStorage();
   const store = createGameStore({ getStorage: () => storage });
