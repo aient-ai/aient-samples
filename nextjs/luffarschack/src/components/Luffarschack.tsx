@@ -264,12 +264,14 @@ export default function Luffarschack() {
   );
 
   const undoLastMove = useCallback(() => {
-    const { player } = moves[moves.length - 1];
+    const lastMove = moves.at(-1);
+    if (!lastMove) return;
+
     const remaining = moves.slice(0, -1);
 
     setMoves(remaining);
     gameStore.save(remaining);
-    setCurrentPlayer(player);
+    setCurrentPlayer(lastMove.player);
     setWinner(null);
     setWinningCells(new Set());
   }, [moves]);
@@ -294,7 +296,8 @@ export default function Luffarschack() {
     const saved = gameStore.load();
     if (!saved) return;
 
-    const lastMove = saved.moves[saved.moves.length - 1];
+    const lastMove = saved.moves.at(-1);
+    if (!lastMove) return;
     const winning = findWinningCells(
       toGameState(saved.moves),
       lastMove.x,

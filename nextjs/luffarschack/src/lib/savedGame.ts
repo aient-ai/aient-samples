@@ -8,7 +8,7 @@ export type Move = {
 
 export type SavedGame = {
   version: 1;
-  moves: Move[];
+  moves: [Move, ...Move[]];
 };
 
 const SAVED_GAME_STORAGE_KEY = "luffarschack.game.v1";
@@ -52,6 +52,7 @@ function readSavedGame(value: string | null): SavedGame | null {
       game.version === 1 &&
       "moves" in game &&
       Array.isArray(game.moves) &&
+      game.moves.length > 0 &&
       game.moves.every(isMove)
     ) {
       return game as SavedGame;
@@ -78,9 +79,19 @@ export function createGameStore({
     },
 
     save(moves: readonly Move[]): void {
-      const game: SavedGame = { version: 1, moves: [...moves] };
       try {
-        getStorage()?.setItem(SAVED_GAME_STORAGE_KEY, JSON.stringify(game));
+        const storage = getStorage();
+        const [firstMove, ...remainingMoves] = moves;
+        if (!firstMove) {
+          storage?.removeItem(SAVED_GAME_STORAGE_KEY);
+          return;
+        }
+
+        const game: SavedGame = {
+          version: 1,
+          moves: [firstMove, ...remainingMoves],
+        };
+        storage?.setItem(SAVED_GAME_STORAGE_KEY, JSON.stringify(game));
       } catch {
         // The game keeps working without persistence when storage is blocked or full.
       }
