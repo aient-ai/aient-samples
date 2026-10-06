@@ -75,6 +75,9 @@ function candidateCells(board: Board): Cell[] {
 }
 
 export function chooseComputerMove(board: Board, player: Player): Cell {
+  // An opening move has no stones to generate neighboring candidates from.
+  if (board.size === 0) return { x: 0, y: 0 };
+
   return candidateCells(board)
     .map((cell) => ({ cell, score: scoreCell(board, cell.x, cell.y, player) }))
     .reduce((best, candidate) =>
