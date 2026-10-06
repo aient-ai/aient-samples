@@ -2,8 +2,17 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RotateCcw, Move as MoveIcon, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  Bot,
+  RotateCcw,
+  Move as MoveIcon,
+  Undo2,
+  Users,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { selectWinningRun } from "@/lib/winningLine";
+import { chooseComputerMove } from "@/lib/computerPlayer";
 import { gameStore, type Move, type Player } from "@/lib/savedGame";
 
 type CellKey = `${number},${number}`;
@@ -11,6 +20,7 @@ type GameState = Map<CellKey, Player>;
 
 const CELL_SIZE = 48;
 const WIN_LENGTH = 5;
+const COMPUTER_MOVE_DELAY_MS = 400;
 const DIRECTIONS = [
   [1, 0], // horizontal
   [0, 1], // vertical
@@ -188,6 +198,11 @@ export default function Luffarschack() {
   const [currentPlayer, setCurrentPlayer] = useState<Player>("X");
   const [winner, setWinner] = useState<Player | null>(null);
   const [winningCells, setWinningCells] = useState<Set<CellKey>>(new Set());
+  const [vsComputer, setVsComputer] = useState(false);
+  const [humanPlayer, setHumanPlayer] = useState<Player>("X");
+  const computerPlayer: Player = humanPlayer === "X" ? "O" : "X";
+  const isComputerTurn =
+    vsComputer && !winner && currentPlayer === computerPlayer;
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -236,15 +251,9 @@ export default function Luffarschack() {
     }
   }
 
-  const handleCellClick = useCallback(
+  const placeMark = useCallback(
     (x: number, y: number) => {
-      // Don't place a mark if we just finished dragging
-      if (hasDraggedRef.current) return;
-      if (winner) return;
-
       const key = cellKey(x, y);
-      if (gameState.has(key)) return;
-
       const newMoves = [...moves, { x, y, player: currentPlayer }];
       setMoves(newMoves);
       gameStore.save(newMoves);
@@ -260,21 +269,49 @@ export default function Luffarschack() {
         setCurrentPlayer(currentPlayer === "X" ? "O" : "X");
       }
     },
-    [moves, gameState, currentPlayer, winner]
+    [moves, gameState, currentPlayer]
   );
 
+  const handleCellClick = useCallback(
+    (x: number, y: number) => {
+      // Don't place a mark if we just finished dragging
+      if (hasDraggedRef.current) return;
+      if (winner || isComputerTurn) return;
+      if (gameState.has(cellKey(x, y))) return;
+
+      placeMark(x, y);
+    },
+    [gameState, winner, isComputerTurn, placeMark]
+  );
+
+  useEffect(() => {
+    if (!isComputerTurn) return;
+
+    const timeout = window.setTimeout(() => {
+      const { x, y } = chooseComputerMove(gameState, currentPlayer);
+      placeMark(x, y);
+    }, COMPUTER_MOVE_DELAY_MS);
+    return () => window.clearTimeout(timeout);
+  }, [isComputerTurn, gameState, currentPlayer, placeMark]);
+
   const undoLastMove = useCallback(() => {
+    if (isComputerTurn) return;
+
     const lastMove = moves.at(-1);
     if (!lastMove) return;
 
-    const remaining = moves.slice(0, -1);
+    // Against the computer, take back its reply as well so it's your turn again.
+    const undoCount =
+      vsComputer && lastMove.player !== humanPlayer && moves.length > 1 ? 2 : 1;
+    const firstUndone = moves[moves.length - undoCount];
+    const remaining = moves.slice(0, -undoCount);
 
     setMoves(remaining);
     gameStore.save(remaining);
-    setCurrentPlayer(lastMove.player);
+    setCurrentPlayer(firstUndone.player);
     setWinner(null);
     setWinningCells(new Set());
-  }, [moves]);
+  }, [moves, vsComputer, humanPlayer, isComputerTurn]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -393,24 +430,45 @@ export default function Luffarschack() {
     [zoom]
   );
 
+  // Only confirm if game is in progress (has moves and no winner)
+  const confirmDiscardGame = useCallback(
+    () =>
+      moves.length === 0 ||
+      !!winner ||
+      window.confirm("Start a new game? Current progress will be lost."),
+    [moves.length, winner]
+  );
+
+  const startNewGame = useCallback(() => {
+    setMoves([]);
+    gameStore.clear();
+    setCurrentPlayer("X");
+    setWinner(null);
+    setWinningCells(new Set());
+    setOffset({ x: viewSize.width / 2, y: viewSize.height / 2 });
+    setZoom(1);
+  }, [viewSize]);
+
   const resetGame = useCallback(
     (skipConfirm = false) => {
-      // Only confirm if game is in progress (has moves and no winner)
-      if (!skipConfirm && moves.length > 0 && !winner) {
-        if (!window.confirm("Start a new game? Current progress will be lost.")) {
-          return;
-        }
+      if (!skipConfirm && !confirmDiscardGame()) return;
+
+      // Take turns starting when playing the computer
+      if (vsComputer) {
+        setHumanPlayer((player) => (player === "X" ? "O" : "X"));
       }
-      setMoves([]);
-      gameStore.clear();
-      setCurrentPlayer("X");
-      setWinner(null);
-      setWinningCells(new Set());
-      setOffset({ x: viewSize.width / 2, y: viewSize.height / 2 });
-      setZoom(1);
+      startNewGame();
     },
-    [viewSize, moves.length, winner]
+    [confirmDiscardGame, startNewGame, vsComputer]
   );
+
+  const toggleOpponent = useCallback(() => {
+    if (!confirmDiscardGame()) return;
+
+    setVsComputer((enabled) => !enabled);
+    setHumanPlayer("X");
+    startNewGame();
+  }, [confirmDiscardGame, startNewGame]);
 
   const centerView = useCallback(() => {
     if (gameState.size === 0) {
@@ -471,6 +529,11 @@ export default function Luffarschack() {
             >
               {currentPlayer}
             </motion.span>
+            {vsComputer && (
+              <span className="text-sm text-muted">
+                {currentPlayer === humanPlayer ? "(you)" : "(computer)"}
+              </span>
+            )}
           </div>
 
           {/* Move counter */}
@@ -504,11 +567,26 @@ export default function Luffarschack() {
             </button>
             <button
               onClick={undoLastMove}
-              disabled={moves.length === 0}
+              disabled={moves.length === 0 || isComputerTurn}
               className="p-2 rounded-lg hover:bg-accent/10 transition-colors disabled:opacity-40 disabled:pointer-events-none"
               title="Undo move (Ctrl/⌘+Z)"
             >
               <Undo2 size={18} className="text-muted" />
+            </button>
+            <button
+              onClick={toggleOpponent}
+              className={`p-2 rounded-lg hover:bg-accent/10 transition-colors ${
+                vsComputer ? "bg-accent/10" : ""
+              }`}
+              title={
+                vsComputer ? "Play against a friend" : "Play against the computer"
+              }
+            >
+              {vsComputer ? (
+                <Bot size={18} className="text-muted" />
+              ) : (
+                <Users size={18} className="text-muted" />
+              )}
             </button>
             <button
               onClick={() => resetGame()}
@@ -561,7 +639,7 @@ export default function Luffarschack() {
               value={value}
               onClick={() => handleCellClick(x, y)}
               isWinning={winningCells.has(cellKey(x, y))}
-              disabled={!!winner}
+              disabled={!!winner || isComputerTurn}
             />
           ))}
         </div>
@@ -595,7 +673,11 @@ export default function Luffarschack() {
                   className="text-xl text-foreground mb-6"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
-                  wins the game!
+                  {vsComputer
+                    ? winner === humanPlayer
+                      ? "You win!"
+                      : "The computer wins!"
+                    : "wins the game!"}
                 </p>
                 <p className="text-sm text-muted mb-6">
                   Game ended after {moves.length} moves
