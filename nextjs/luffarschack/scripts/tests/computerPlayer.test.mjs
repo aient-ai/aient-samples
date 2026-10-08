@@ -6,6 +6,15 @@ import { chooseComputerMove } from "../../src/lib/computerPlayer.ts";
 const board = (stones) =>
   new Map(stones.map(([x, y, player]) => [`${x},${y}`, player]));
 
+for (const player of ["X", "O"]) {
+  test(`opens at the origin on an empty board as ${player}`, () => {
+    const state = board([]);
+
+    assert.deepEqual(chooseComputerMove(state, player), { x: 0, y: 0 });
+    assert.equal(state.size, 0);
+  });
+}
+
 test("replies next to a lone opening stone", () => {
   const move = chooseComputerMove(board([[0, 0, "X"]]), "O");
 
