@@ -30,6 +30,15 @@ metadata and browser/server source-map uploads. `COMMIT_REF` and `AIENT_ENV` are
 defaults automatically (`production` is normalized to the `prod` release
 environment).
 
+The commit must be the full 40-character Git SHA; short SHAs and placeholders
+fail before building. The build bakes server and browser release metadata into
+the artifact, so both still identify that build when the build-only environment
+is absent at runtime. `BUILD_DATE` defaults to the build's ISO timestamp.
+There is no checked-in deployment workflow or hosting manifest: configure the
+host's root directory as `nextjs/luffarschack` and build command as `pnpm build`.
+Outside Vercel, supply `COMMIT_SHA`, `COMMIT_REF`, and `AIENT_ENV` from the deploy
+job; do not replace this command with a bare `next build`.
+
 The production `pnpm build` command emits browser source maps, builds the Next.js
 server maps, then uploads both outputs with the installed `@aient/sourcemaps`
 CLI. Configure the upload-scoped `AIENT_API_KEY` in the hosting provider's
@@ -37,9 +46,15 @@ secret store; it must not be a publishable ingest key or a `NEXT_PUBLIC_*`
 variable. The build fails rather than deploying an artifact without matching
 maps. Vercel preview builds without access to the secret skip uploads; they
 upload normally when the secret is available, and Vercel production deployments
-remain fail-closed. If server stack paths include an absolute application root, set
-`AIENT_SERVER_BUNDLE_PREFIX` to that root plus `/.next/server` (for example,
-`/app/.next/server`).
+remain fail-closed. Browser uploads use `/_next/static`; server uploads use
+`/var/task/.next/server` on Vercel and the absolute build directory's
+`.next/server` otherwise. If the artifact is moved before running it, set
+`AIENT_SERVER_BUNDLE_PREFIX` to the runtime application root plus `/.next/server`
+(for example, `/app/.next/server`). Confirm this against deployed stack paths.
+The added Next config only inlines public release metadata, not server or upload keys. Configure
+`AIENT_PUBLISHABLE_KEY` in the server's runtime environment and
+`NEXT_PUBLIC_AIENT_PUBLISHABLE_KEY` at build time. `AIENT_API_KEY` is build-only
+and passed to the uploader, not explicitly to the Next build subprocess.
 
 The browser bootstrap creates separate random installation and anonymous
 pseudonymous IDs before telemetry starts. It keeps them in first-party local

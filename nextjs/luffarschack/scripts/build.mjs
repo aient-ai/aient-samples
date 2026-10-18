@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import nextEnv from "@next/env";
 
 // Match Next production builds before reading release metadata or upload credentials.
@@ -21,6 +22,10 @@ if (!commit) {
   );
 }
 
+if (!/^[0-9a-f]{40}$/.test(commit)) {
+  throw new Error("Release commit must be a full 40-character Git SHA.");
+}
+
 if (
   process.env.NEXT_PUBLIC_COMMIT_SHA &&
   process.env.NEXT_PUBLIC_COMMIT_SHA !== commit
@@ -34,6 +39,7 @@ const buildEnv = {
   ...process.env,
   COMMIT_SHA: commit,
   COMMIT_REF: branch,
+  BUILD_DATE: process.env.BUILD_DATE || new Date().toISOString(),
   NEXT_PUBLIC_COMMIT_SHA: commit,
   NEXT_PUBLIC_COMMIT_REF: process.env.NEXT_PUBLIC_COMMIT_REF || branch,
   AIENT_ENV: environment,
@@ -41,18 +47,21 @@ const buildEnv = {
     process.env.NEXT_PUBLIC_AIENT_ENV || environment,
 };
 
-run("next", ["build"], buildEnv);
+// An upload-scoped secret is not runtime configuration. Only the uploader needs it.
+const { AIENT_API_KEY: uploadKey, ...runtimeBuildEnv } = buildEnv;
 
-if (!buildEnv.AIENT_API_KEY) {
-  if (isVercelPreview) {
-    console.warn(
-      "Skipping Aient source-map upload because AIENT_API_KEY is not configured for this Vercel preview. Production deployments still require it.",
-    );
-  } else {
-    throw new Error(
-      "AIENT_API_KEY is required to upload source maps from the production build.",
-    );
-  }
+if (!uploadKey && !isVercelPreview) {
+  throw new Error(
+    "AIENT_API_KEY is required to upload source maps from the production build.",
+  );
+}
+
+run("next", ["build"], runtimeBuildEnv);
+
+if (!uploadKey) {
+  console.warn(
+    "Skipping Aient source-map upload because AIENT_API_KEY is not configured for this Vercel preview. Production deployments still require it.",
+  );
 } else {
   const browserService =
     buildEnv.NEXT_PUBLIC_OTEL_SERVICE_NAME ?? "luffarschack";
@@ -62,7 +71,8 @@ if (!buildEnv.AIENT_API_KEY) {
   upload(
     ".next/server",
     serverService,
-    buildEnv.AIENT_SERVER_BUNDLE_PREFIX ?? "/.next/server",
+    buildEnv.AIENT_SERVER_BUNDLE_PREFIX ||
+      (buildEnv.VERCEL === "1" ? "/var/task/.next/server" : resolve(".next/server")),
   );
 }
 

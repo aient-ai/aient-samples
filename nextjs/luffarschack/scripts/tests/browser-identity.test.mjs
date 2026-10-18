@@ -52,6 +52,8 @@ async function captureIdentity(identity, name, requests) {
   const sdk = registerOTelBrowser({
     serviceName: "luffarschack-identity-test",
     exporterUrl: "https://capture.invalid",
+    publishableKey: "test-publishable-key",
+    release: { commit: "a".repeat(40), branch: "main", environment: "prod" },
     instrumentations: [],
     captureUnhandledErrors: false,
     installationId: identity.installationId,
@@ -93,9 +95,24 @@ async function captureIdentity(identity, name, requests) {
 
   assert.equal(signalAttributes(span)["enduser.pseudo.id"], identity.pseudoId);
   assert.equal(signalAttributes(log)["enduser.pseudo.id"], identity.pseudoId);
+  for (const signal of [span, log]) {
+    assert.equal(signalAttributes(signal)["enduser.id"], undefined);
+  }
+  for (const [request, resources] of [
+    [traceRequest, traceRequest.body.resourceSpans],
+    [logRequest, logRequest.body.resourceLogs],
+  ]) {
+    assert.equal(request.authorization, "Bearer test-publishable-key");
+    const attributes = signalAttributes(resources[0].resource);
+    assert.equal(attributes["app.installation.id"], identity.installationId);
+    assert.equal(attributes["service.name"], "luffarschack-identity-test");
+    assert.equal(attributes["deployment.commit_sha"], "a".repeat(40));
+    assert.equal(attributes["deployment.commit_ref"], "main");
+    assert.equal(attributes["deployment.environment"], "prod");
+  }
 }
 
-test("anonymous identity persists across reload and is exported on spans and logs", async () => {
+test("anonymous identity persists across reload and remount and is exported on spans and logs", { timeout: 10000 }, async () => {
   const storage = createStorage();
   const firstIdentity = createBrowserIdentityResolver({
     getStorage: () => storage,
@@ -112,13 +129,18 @@ test("anonymous identity persists across reload and is exported on spans and log
   const requests = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
-    requests.push({ url: String(url), body: JSON.parse(init.body) });
+    requests.push({
+      url: String(url), body: JSON.parse(init.body),
+      authorization: new Headers(init.headers).get("authorization"),
+    });
     return new Response(null, { status: 200 });
   };
 
   try {
     await captureIdentity(firstIdentity, "initial", requests);
     await captureIdentity(reloadedIdentity, "reload", requests);
+    // SDK cleanup/remount must not rotate application-owned identity.
+    await captureIdentity(reloadedIdentity, "remount", requests);
   } finally {
     globalThis.fetch = originalFetch;
   }
