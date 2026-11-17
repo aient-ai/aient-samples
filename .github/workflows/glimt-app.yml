@@ -1,0 +1,64 @@
+name: Glimt app
+
+on:
+  pull_request:
+    paths:
+      - "nextjs/glimt-app/**"
+      - ".github/workflows/glimt-app.yml"
+  push:
+    branches: [main]
+    paths:
+      - "nextjs/glimt-app/**"
+      - ".github/workflows/glimt-app.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Glimt security, lint, build and types
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: nextjs/glimt-app
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Enable the package manager pinned in package.json
+        run: corepack enable
+      - name: Install the exact lockfile
+        run: corepack pnpm install --frozen-lockfile
+      - name: Reject high or critical dependency advisories
+        shell: bash
+        run: |
+          # pnpm exits 1 even for moderate findings; inspect the full result and
+          # fail closed if the registry did not return vulnerability counts.
+          audit_status=0
+          corepack pnpm audit --json > "$RUNNER_TEMP/glimt-audit.json" || audit_status=$?
+          if [ "$audit_status" -gt 1 ]; then
+            exit "$audit_status"
+          fi
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const result = JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/glimt-audit.json`, 'utf8'));
+          const counts = result.metadata?.vulnerabilities;
+          if (!counts || typeof counts.high !== 'number' || typeof counts.critical !== 'number') {
+            throw new Error('Dependency audit did not return vulnerability counts');
+          }
+          console.log('Dependency advisory counts:', counts);
+          if (counts.high !== 0 || counts.critical !== 0) {
+            throw new Error('High or critical dependency advisories found');
+          }
+          NODE
+      - name: Lint
+        run: corepack pnpm lint
+      - name: Production build
+        run: corepack pnpm build
+      - name: Type-check generated routes and application code
+        run: corepack pnpm exec tsc --noEmit
